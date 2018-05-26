@@ -1,14 +1,17 @@
 #!/usr/bin/env node
-const http = require('http');
-const fs = require('fs');
+const net = require('net');
 
-http.createServer((request, response) => {
-  const body = `Request type: ${request.method}</br>
-  User agent: ${request.headers['user-agent']}`;
-  response.writeHead(200, 'OK', {
-    'Content-length': Buffer.byteLength(body),
-    'Content-Type': 'text/html',
+const server = new net.Server;
+let bufer = '';
+server.on('connection', socket => {
+  socket.setEncoding('utf8');
+  socket.on('data', data => {
+    if (data.charCodeAt() === 13) {
+      console.log(bufer);
+    } else {
+      bufer += data;
+    }
   });
-  response.write(body);
-  response.end();
-}).listen(8080);
+});
+
+server.listen(8080);
