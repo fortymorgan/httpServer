@@ -15,18 +15,15 @@ server.on('connection', socket => {
       return `<tr><td>${header}</td><td>${value}</td></tr>`
     });
     const htmlTableHeaders = '<tr><th>Header</th><th>Value</th></tr>';
-    const content = `<p>Verb: ${verb}</p>
-    <p>Path: ${path}</p>
-    <p>Version: ${version.split('/').join(' ')}
-    <table border="1">
-    ${[htmlTableHeaders, ...headersHtmlTableArray].join('\n')}
-    </table>`
+    const content = `<p>Verb: ${verb}</p><p>Path: ${path}</p><p>Version: ${version.split('/').join(' ')}</p><table border="1">${[htmlTableHeaders, ...headersHtmlTableArray].join('')}</table>`
     const response = `${version} 200 OK
 Content-type: text/html
 Content-length: ${Buffer.byteLength(content)}
 
-${content}`
-    socket.write(response);
+${content}`;
+    if (data.indexOf('\r\n\r\n') !== -1){
+      socket.write(response);
+    }
   });
 });
 
