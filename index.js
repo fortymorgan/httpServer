@@ -1,16 +1,17 @@
 #!/usr/bin/env node
 const net = require('net');
 
+const response = `HTTP/1.1 200 OK
+Content-type: text/plain
+Content-length: 13
+
+Hello, World!`
+
 const server = new net.Server;
-let bufer = '';
 server.on('connection', socket => {
   socket.setEncoding('utf8');
   socket.on('data', data => {
-    if (data.charCodeAt() === 13) {
-      console.log(bufer);
-    } else {
-      bufer += data;
-    }
+    socket.write(response);
   });
 });
 
