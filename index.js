@@ -1,39 +1,50 @@
 #!/usr/bin/env node
 const net = require('net');
 
-const isRequestOver = data => data.includes('\r\n\r\n')
+const isRequestOver = data => {
+  const isOver = data.includes('\r\n\r\n');
+  return isOver;
+};
 
 const isRequestValid = data => {
   const query = getQueryLine(data);
   const verbs = ['GET', 'HEAD'];
   const [verb, path, version] = query.split(' ');
 
-  const valid = verbs.includes(verb.toUpperCase())
+  const isValid = verbs.includes(verb.toUpperCase())
     && path[0] === '/'
     && version.toUpperCase().includes('HTTP/');
   
-  return valid;
-}
+  return isValid;
+};
+
+const isPathExist = data => {
+  const query = getQueryLine(data);
+  const [_, path] = query.split(' ');
+  const isExist = path === '/';
+
+  return isExist;
+};
 
 const getQueryLine = data => {
   const [query] = data.split('\r\n');
   return query;
-}
+};
 
 const getVersion = data => {
   const query = getQueryLine(data);
   const [_, __, version] = query.split(' ');
   return version.toUpperCase();
-}
+};
 
 const generateResponseHeaders = (headers, body) => {
   const headerTypes = {
     'Location': () => 'http://www.google.com/',
     'Content-type': () => 'text/html',
     'Content-length': () => Buffer.byteLength(body),
-  }
-  return headers.map(header => `${header}: ${headerTypes[header]()}`).join('\n')
-}
+  };
+  return headers.map(header => `${header}: ${headerTypes[header]()}`).join('\n');
+};
 
 const generateResponse = (code, data, version = 'HTTP/1.0') => {
   const responses = {
@@ -45,14 +56,19 @@ const generateResponse = (code, data, version = 'HTTP/1.0') => {
     '400': {
       message: 'Bad Request',
       headers: ['Content-type', 'Content-length'],
-      body: function() { return `<h1>${this.code} ${this.message}</h1>` },
+      body: function() { return `<h1>400 ${this.message}</h1>` },
+    },
+    '404': {
+      message: 'Not Found',
+      headers: ['Content-type', 'Content-length'],
+      body: function() { return `<h1>404 ${this.message}</h1>` },
     },
     '301': {
       message: 'Moved Permanently',
       headers: ['Location', 'Content-type', 'Content-length'],
-      body: function() { return `<h1>${this.code} ${this.message}</h1>` },
+      body: function() { return `<h1>301 ${this.message}</h1>` },
     }
-  }
+  };
 
   const response = responses[code];
 
@@ -87,21 +103,28 @@ const generateOkBody = data => {
   return `${queryHtmlData}\n${headersHtmlTable}`;
 }
 
+const writeResponseWithEnd = (socket, code) => {
+  const response = generateResponse(code);
+  socket.write(response, () => socket.end());
+};
+
 net.createServer(socket => {
   let dataContainer = '';
   socket.setEncoding('utf8');
   socket.on('data', data => {
     dataContainer += data;
     if (!isRequestValid(dataContainer)) {
-      const response400 = generateResponse(400);
-      socket.write(response400, () => socket.end());
+      writeResponseWithEnd(socket, 400)
     }
     if (isRequestOver(dataContainer)) {
       const version = getVersion(dataContainer);
-      // const response301 = generateResponse(301);
-      // socket.write(response301, () => socket.end());
-      const response200 = generateResponse(200, dataContainer, version);
-      socket.write(response200, () => dataContainer = '');
+      // writeResponseWithEnd(socket, 301)
+      if (isPathExist(dataContainer)) {
+        const response = generateResponse(200, dataContainer, version);
+        socket.write(response, () => dataContainer = '');
+      } else {
+        writeResponseWithEnd(socket, 404);
+      }
     }
   });
 }).listen(3000);
