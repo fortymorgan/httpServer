@@ -28,6 +28,7 @@ const getVersion = data => {
 
 const generateResponseHeaders = (headers, body) => {
   const headerTypes = {
+    'Location': () => 'http://www.google.com/',
     'Content-type': () => 'text/html',
     'Content-length': () => Buffer.byteLength(body),
   }
@@ -44,6 +45,11 @@ const generateResponse = (code, data, version = 'HTTP/1.0') => {
     '400': {
       message: 'Bad Request',
       headers: ['Content-type', 'Content-length'],
+      body: function() { return `<h1>${this.code} ${this.message}</h1>` },
+    },
+    '301': {
+      message: 'Moved Permanently',
+      headers: ['Location', 'Content-type', 'Content-length'],
       body: function() { return `<h1>${this.code} ${this.message}</h1>` },
     }
   }
@@ -92,6 +98,8 @@ net.createServer(socket => {
     }
     if (isRequestOver(dataContainer)) {
       const version = getVersion(dataContainer);
+      // const response301 = generateResponse(301);
+      // socket.write(response301, () => socket.end());
       const response200 = generateResponse(200, dataContainer, version);
       socket.write(response200, () => dataContainer = '');
     }
