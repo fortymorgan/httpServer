@@ -81,10 +81,10 @@ function end(data = '') {
     this.head += `\nContent-length: ${Buffer.byteLength(this.body)}`;
   }
   const responseBody = {
-    GET: () => this.body,
-    HEAD: () => '',
+    GET: this.body,
+    HEAD: '',
   }
-  const responseString = `${this.head}\n\n${responseBody[this.request.method]()}`;
+  const responseString = `${this.head}\n\n${responseBody[this.request.method]}`;
   this.subscription.write(responseString);
 };
 
