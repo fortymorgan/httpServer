@@ -88,44 +88,49 @@ function end(data = '') {
     HEAD: '',
   }
   const responseString = `${this.head}\n\n${responseBody[this.request.method]}`;
-  this.subscription.write(responseString);
+  this.socket.write(responseString);
 };
 
-const recieveData = (subscribe, accumulate, check, callback) => {
-  const subscription = subscribe();
-  accumulate(subscription, check, callback);
-};
-
-const accumulateData = (subscription, check, callback) => {
-  let buffer = '';
-  subscription.on('data', data => {
-    buffer += data;
-    if (!isRequestValid(buffer)) {
-      subscription.end();
-    }
-    if (check(buffer)) {
-      callback(subscription, buffer);
-      buffer = '';
-    }
-  });
-};
-
-const wrapCallback = callback => (subscription, data) => {
+const wrapCallback = (callback, socket) => (data) => {
   const request = parseRequest(data);
-  const response = { subscription, request, writeHead, write, end };
+  const response = { socket, request, writeHead, write, end };
   callback(request, response);
+};
+
+const wrapSubscribe = socket => (callback) => {
+  socket.on('data', (data) => callback(data));
+};
+
+const accumulateData = (buffer, data) => buffer + data;
+
+const recieveData = (subscribe, accumulate, complete, error) => {
+  let buffer = accumulate.init;
+  const cb = data => {
+    buffer = accumulate.method(buffer, data);
+    if (!error.check(buffer)) {
+      error.callback();
+    }
+    if (complete.check(buffer)) {
+      complete.callback(buffer);
+    }
+  };
+  subscribe(cb);
 };
 
 const createServer = (callbackOnRequest) => {
   const server = new net.Server;
   server.on('connection', socket => {
-    const wrappedCallback = wrapCallback(callbackOnRequest);
-    recieveData(() => socket, accumulateData, isRequestOver, wrappedCallback);
+    const wrappedSubscribe = wrapSubscribe(socket);
+    const wrappedCallback = wrapCallback(callbackOnRequest, socket);
+    const completeMethods = { check: isRequestOver, callback: wrappedCallback };
+    const errorMethods = { check: isRequestValid, callback: () => socket.end() };
+    const dataAccumulation = { init: '', method: accumulateData };
+    recieveData(wrappedSubscribe, dataAccumulation, completeMethods, errorMethods);
   });
   return server;
-}
+};
 
 module.exports = {
   createServer,
   listen: net.listen,
-}
+};
