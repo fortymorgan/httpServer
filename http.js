@@ -32,10 +32,8 @@ const parseRequest = (data) => {
   const headersArrayWithoutNull = headersArray
     .map(header => header.split(': '));
   
-  const headers = headersArrayWithoutNull.reduce((acc, [header, value]) => {
-    acc[header] = value;
-    return acc;
-  }, {})
+  const headers = headersArrayWithoutNull
+    .reduce((acc, [header, value]) => ({ ...acc, [header]: value }), {})
 
   return { httpVersion, method, url, headers, body };
 };
