@@ -42,6 +42,21 @@ const parseRequest = (data) => {
 
 const isBodyExist = body => (body ? body : '')
 
+const splitIntoChunks = data => {
+  const chunkSize = 1024;
+  const chunkCount = Math.ceil(Buffer.byteLength(data) / chunkSize);
+
+  let chunked = '';
+  let currentChunk;
+  for (let i = 0; i < chunkCount; i += 1) {
+    currentChunk = data.slice(chunkSize * i, chunkSize * (i + 1));
+    chunked += `${Buffer.byteLength(currentChunk).toString(16)}\n${currentChunk}\n`;
+  }
+  chunked += '0\n\n';
+
+  return chunked
+}
+
 function writeHead(code, message = '', headers = {}) {
   const defaultHeaders = {
     Date: new Date,
@@ -66,17 +81,7 @@ function write(data) {
 function end(data = '') {
   this.body = isBodyExist(this.body) + data;
   if (Object.values(this.headers).includes('chunked')) {
-    const chunkSize = 1024;
-    const chunkCount = Math.ceil(Buffer.byteLength(this.body) / chunkSize);
-    
-    let chunked = '';
-    let current;
-    for (let i = 0; i < chunkCount; i += 1) {
-      current = this.body.slice(chunkSize * i, chunkSize * (i + 1));
-      chunked += `${Buffer.byteLength(current).toString(16)}\n${current}\n`;
-    }
-    chunked += '0\n\n';
-    this.body = chunked;
+    this.body = splitIntoChunks(this.body);
   } else {
     this.head += `\nContent-length: ${Buffer.byteLength(this.body)}`;
   }
