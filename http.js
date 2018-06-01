@@ -60,13 +60,11 @@ function writeHead(code, message = '', headers = {}) {
 };
 
 function write(data) {
-  this.body = isBodyExist(this.body);
-  this.body += data;
+  this.body = isBodyExist(this.body) + data;
 }
 
 function end(data = '') {
-  this.body = isBodyExist(this.body);
-  this.body += data;
+  this.body = isBodyExist(this.body) + data;
   if (Object.values(this.headers).includes('chunked')) {
     const chunkSize = 1024;
     const chunkCount = Math.ceil(Buffer.byteLength(this.body) / chunkSize);
