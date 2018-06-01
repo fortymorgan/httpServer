@@ -82,9 +82,13 @@ function end(data = '') {
   } else {
     this.head += `\nContent-length: ${Buffer.byteLength(this.body)}`;
   }
-  const responseString = `${this.head}\n\n${this.request.method === 'HEAD' ? '' : this.body}`;
+  const responseBody = {
+    GET: () => this.body,
+    HEAD: () => '',
+  }
+  const responseString = `${this.head}\n\n${responseBody[this.request.method]()}`;
   this.subscription.write(responseString);
-  // this.subscription.setTimeout(5000, () => this.subscription.end());
+  this.subscription.setTimeout(5000, () => this.subscription.end());
 };
 
 const recieveData = (subscribe, accumulate, check, callback) => {
