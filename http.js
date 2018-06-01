@@ -44,34 +44,49 @@ function writeHead(code, message = '', headers = {}) {
   const defaultHeaders = {
     Date: new Date,
     Connection: this.request.httpVersion === '1.0' ? 'close' : 'keep-alive',
-    'Transfer-Encoding': 'chunked',
   };
   
   const headString = `HTTP/1.1 ${code} ${message}`;
-  const responseHeaders = { ...headers, ...defaultHeaders };
+  this.headers = { ...defaultHeaders, ...headers };
 
-  const headersString = Object.keys(responseHeaders)
-    .map(key => [key, responseHeaders[key]])
+  const headersString = Object.keys(this.headers)
+    .map(key => [key, this.headers[key]])
     .map(header => header.join(': '))
     .join('\n');
 
-  const responseHead = `${headString}\n${headersString}\n\n`;
-  this.subscription.write(responseHead);
+  this.head = `${headString}\n${headersString}`;
 };
 
-function end(data) {
-  const chunkSize = 1024;
-  const chunkCount = Math.ceil(Buffer.byteLength(data) / chunkSize);
-
-  let chunked = '';
-  let current;
-  for (let i = 0; i < chunkCount; i += 1) {
-    current = data.slice(chunkSize * i, chunkSize * (i + 1));
-    chunked += `${Buffer.byteLength(current).toString(16)}\n${current}\n`;
+function write(data) {
+  if (!this.body) {
+    this.body = '';
   }
-  chunked += '0\n\n';
-  this.subscription.write(chunked);
-  this.subscription.setTimeout(5000, () => this.subscription.end());
+  this.body += data;
+}
+
+function end(data = '') {
+  if (!this.body) {
+    this.body = '';
+  }
+  if (Object.values(this.headers).includes('chunked')) {
+    const body = this.body + data;
+    const chunkSize = 1024;
+    const chunkCount = Math.ceil(Buffer.byteLength(body) / chunkSize);
+    
+    let chunked = '';
+    let current;
+    for (let i = 0; i < chunkCount; i += 1) {
+      current = body.slice(chunkSize * i, chunkSize * (i + 1));
+      chunked += `${Buffer.byteLength(current).toString(16)}\n${current}\n`;
+    }
+    chunked += '0\n\n';
+    this.body = chunked;
+  } else {
+    this.head += `\nContent-length: ${Buffer.byteLength(this.body)}`;
+  }
+  const responseString = `${this.head}\n\n${this.request.method === 'HEAD' ? '' : this.body}`;
+  this.subscription.write(responseString);
+  // this.subscription.setTimeout(5000, () => this.subscription.end());
 };
 
 const recieveData = (subscribe, accumulate, check, callback) => {
@@ -95,7 +110,7 @@ const accumulateData = (subscription, check, callback) => {
 
 const wrapCallback = callback => (subscription, data) => {
   const request = parseRequest(data);
-  const response = { subscription, request, writeHead, end };
+  const response = { subscription, request, writeHead, write, end };
   callback(request, response);
 };
 

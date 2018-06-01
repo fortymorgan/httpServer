@@ -26,5 +26,6 @@ const generateBody = data => {
 
 http.createServer((request, response) => {
   response.writeHead(200, 'OK', { 'Content-type': 'text/html' });
-  response.end(generateBody(request));
+  response.write(generateBody(request));
+  response.end();
 }).listen(3000);
