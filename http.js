@@ -66,15 +66,15 @@ function write(data) {
 
 function end(data = '') {
   this.body = isBodyExist(this.body);
+  this.body += data;
   if (Object.values(this.headers).includes('chunked')) {
-    const body = this.body + data;
     const chunkSize = 1024;
-    const chunkCount = Math.ceil(Buffer.byteLength(body) / chunkSize);
+    const chunkCount = Math.ceil(Buffer.byteLength(this.body) / chunkSize);
     
     let chunked = '';
     let current;
     for (let i = 0; i < chunkCount; i += 1) {
-      current = body.slice(chunkSize * i, chunkSize * (i + 1));
+      current = this.body.slice(chunkSize * i, chunkSize * (i + 1));
       chunked += `${Buffer.byteLength(current).toString(16)}\n${current}\n`;
     }
     chunked += '0\n\n';
@@ -88,7 +88,6 @@ function end(data = '') {
   }
   const responseString = `${this.head}\n\n${responseBody[this.request.method]()}`;
   this.subscription.write(responseString);
-  this.subscription.setTimeout(5000, () => this.subscription.end());
 };
 
 const recieveData = (subscribe, accumulate, check, callback) => {
