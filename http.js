@@ -40,6 +40,8 @@ const parseRequest = (data) => {
   return { httpVersion, method, url, headers, body };
 };
 
+const isBodyExist = body => (body ? body : '')
+
 function writeHead(code, message = '', headers = {}) {
   const defaultHeaders = {
     Date: new Date,
@@ -58,16 +60,12 @@ function writeHead(code, message = '', headers = {}) {
 };
 
 function write(data) {
-  if (!this.body) {
-    this.body = '';
-  }
+  this.body = isBodyExist(this.body);
   this.body += data;
 }
 
 function end(data = '') {
-  if (!this.body) {
-    this.body = '';
-  }
+  this.body = isBodyExist(this.body);
   if (Object.values(this.headers).includes('chunked')) {
     const body = this.body + data;
     const chunkSize = 1024;
