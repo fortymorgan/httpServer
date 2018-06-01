@@ -43,11 +43,11 @@ const parseRequest = (data) => {
 function writeHead(code, message = '', headers = {}) {
   const defaultHeaders = {
     Date: new Date,
-    Connection: this.version === '1.0' ? 'close' : 'keep-alive',
+    Connection: this.request.httpVersion === '1.0' ? 'close' : 'keep-alive',
     'Transfer-Encoding': 'chunked',
-  }
+  };
   
-  const headString = `HTTP/1.1 ${code} ${message}`
+  const headString = `HTTP/1.1 ${code} ${message}`;
   const responseHeaders = { ...headers, ...defaultHeaders };
 
   const headersString = Object.keys(responseHeaders)
@@ -56,8 +56,8 @@ function writeHead(code, message = '', headers = {}) {
     .join('\n');
 
   const responseHead = `${headString}\n${headersString}\n\n`;
-  this.socket.write(responseHead);
-}
+  this.subscription.write(responseHead);
+};
 
 function end(data) {
   const chunkSize = 1024;
@@ -70,26 +70,40 @@ function end(data) {
     chunked += `${Buffer.byteLength(current).toString(16)}\n${current}\n`;
   }
   chunked += '0\n\n';
-  this.socket.write(chunked);
-  this.socket.setTimeout(5000, () => this.socket.end());
-}
+  this.subscription.write(chunked);
+  this.subscription.setTimeout(5000, () => this.subscription.end());
+};
+
+const recieveData = (subscribe, accumulate, check, callback) => {
+  const subscription = subscribe();
+  accumulate(subscription, check, callback);
+};
+
+const accumulateData = (subscription, check, callback) => {
+  let buffer = '';
+  subscription.on('data', data => {
+    buffer += data;
+    if (!isRequestValid(buffer)) {
+      subscription.end();
+    }
+    if (check(buffer)) {
+      callback(subscription, buffer);
+      buffer = '';
+    }
+  });
+};
+
+const wrapCallback = callback => (subscription, data) => {
+  const request = parseRequest(data);
+  const response = { subscription, request, writeHead, end };
+  callback(request, response);
+};
 
 const createServer = (callbackOnRequest) => {
   const server = new net.Server;
   server.on('connection', socket => {
-    let buffer = '';
-    socket.on('data', data => {
-      buffer += data;
-      if (!isRequestValid(buffer)) {
-        socket.end();
-      }
-      if (isRequestOver(buffer)) {
-        const request = { socket, ...parseRequest(buffer) };
-        const response = { socket, writeHead, end, version: request.httpVersion };
-        callbackOnRequest(request, response);
-        buffer = '';
-      }
-    })
+    const wrappedCallback = wrapCallback(callbackOnRequest);
+    recieveData(() => socket, accumulateData, isRequestOver, wrappedCallback);
   });
   return server;
 }
